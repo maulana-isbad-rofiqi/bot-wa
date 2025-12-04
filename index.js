@@ -1,4 +1,4 @@
-import { makeWASocket, useMultiFileAuthState, delay, DisconnectReason } from '@whiskeysockets/baileys';
+import { makeWASocket, useMultiFileAuthState, delay } from '@whiskeysockets/baileys';
 import express from 'express';
 import pino from 'pino';
 
@@ -7,27 +7,18 @@ const port = process.env.PORT || 3000;
 
 app.use(express.urlencoded({ extended: true }));
 
-// Halaman Status
+// Halaman Utama
 app.get('/', (req, res) => {
-    res.send(`
-        <div style="font-family: sans-serif; text-align: center; padding: 20px;">
-            <h1>Bot WA Vercel (Mode ESM)</h1>
-            <p style="color: green;">Status: Online & Ready ✅</p>
-            <form action="/pair" method="get">
-                <input type="number" name="phone" placeholder="628xxx" required style="padding:10px;">
-                <button type="submit" style="padding:10px;">Minta Kode Pairing</button>
-            </form>
-        </div>
-    `);
+    res.send('Server WhatsApp Vercel Aktif! Masuk ke /pair?phone=628xx untuk kode.');
 });
 
-// Proses Pairing
+// Halaman Pairing
 app.get('/pair', async (req, res) => {
     const phone = req.query.phone;
-    if (!phone) return res.send("Nomor wajib diisi!");
+    if (!phone) return res.send("Tambahkan nomor di URL! Contoh: /pair?phone=628123456");
 
     try {
-        // Gunakan folder /tmp untuk sesi sementara di Vercel
+        // Vercel hanya membolehkan tulis file di /tmp
         const { state, saveCreds } = await useMultiFileAuthState('/tmp/auth_info_baileys');
 
         const sock = makeWASocket({
@@ -38,20 +29,21 @@ app.get('/pair', async (req, res) => {
         });
 
         if (!sock.authState.creds.registered) {
-            await delay(1500);
-            
-            // Request Kode
+            await delay(1500); // Tunggu sebentar
+
             const code = await sock.requestPairingCode(phone);
-            
+
             res.send(`
-                <div style="font-family: sans-serif; text-align: center;">
-                    <h3>Kode Pairing Anda:</h3>
-                    <h1 style="background: #eee; padding: 20px; border-radius: 10px;">${code}</h1>
-                    <p>Salin kode ini ke WhatsApp > Perangkat Tertaut.</p>
-                </div>
+                <html>
+                    <body style="font-family: sans-serif; text-align: center; margin-top: 50px;">
+                        <h3>Kode Pairing Kamu:</h3>
+                        <h1 style="background: #eee; padding: 20px; display: inline-block; letter-spacing: 5px;">${code}</h1>
+                        <p>Masukkan kode ini di WhatsApp > Perangkat Tertaut.</p>
+                    </body>
+                </html>
             `);
         } else {
-            res.send("Sesi sudah aktif sebelumnya.");
+            res.send("Sesi sudah aktif di server ini.");
         }
 
         sock.ev.on('creds.update', saveCreds);
@@ -63,8 +55,8 @@ app.get('/pair', async (req, res) => {
 });
 
 app.listen(port, () => {
-    console.log(`Server berjalan di port ${port}`);
+    console.log(`Server listening on port ${port}`);
 });
 
-// Wajib untuk Vercel ESM
+// Ini wajib untuk Vercel
 export default app;
